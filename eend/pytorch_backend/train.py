@@ -10,7 +10,7 @@ import logging
 import torch
 from torch import optim
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 from eend.pytorch_backend.models import TransformerModel, NoamScheduler
 from eend.pytorch_backend.diarization_dataset import KaldiDiarizationDataset, my_collate
@@ -37,6 +37,7 @@ def train(args):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+    """
     train_set = KaldiDiarizationDataset(
         data_dir=args.train_data_dir,
         chunk_size=args.num_frames,
@@ -63,6 +64,32 @@ def train(args):
         label_delay=args.label_delay,
         n_speakers=args.num_speakers,
         )
+    """
+    dataset = KaldiDiarizationDataset(        
+        data_dir=args.train_data_dir,
+        chunk_size=args.num_frames,
+        context_size=args.context_size,
+        input_transform=args.input_transform,
+        frame_size=args.frame_size,
+        frame_shift=args.frame_shift,
+        subsampling=args.subsampling,
+        rate=args.sampling_rate,
+        use_last_samples=True,
+        label_delay=args.label_delay,
+        n_speakers=args.num_speakers,
+        )
+    
+    generator = torch.Generator()
+    generator.manual_seed(27)
+    train_set, val_set = random_split(dataset=dataset,
+                                      lengths=[0.8,0.2],
+                                      generator=generator)
+    
+    dataloader =  DataLoader(dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=16,
+            collate_fn=my_collate)
 
     # Prepare model
     Y, T = next(iter(train_set))
