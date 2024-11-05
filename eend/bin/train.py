@@ -5,17 +5,20 @@
 #
 import argparse
 import os
+import yaml
+import sys 
+
+with open("/gpfs/projects/bsc88/speech/ASR/scripts/miscellaneous/EEND/conf/general_conf.yaml", "r") as file:
+        config = yaml.safe_load(file)
+
 
 parser = argparse.ArgumentParser(description="EEND training")
 
-
-
-
-parser.add_argument('train_data_dir',
-                    help='kaldi-style data dir used for training.')
-parser.add_argument('valid_data_dir',
+parser.add_argument('--train_data_dir',
+                    help='kaldi-style data dir used for training.', default=config["paths"]["train_data_dir"])
+parser.add_argument('--valid_data_dir',
                     help='kaldi-style data dir used for validation.')
-parser.add_argument('model_save_dir',
+parser.add_argument('--model_save_dir', default=config["paths"]["model_save_dir"],
                     help='output model_save_dirdirectory which model file will be saved in.')
 parser.add_argument('--model-type', default='Transformer',
                     help='Type of model (Transformer)')
@@ -63,3 +66,5 @@ if not os.path.exists(args.model_save_dir):
 
 from eend.pytorch_backend.train import train
 train(args)
+
+

@@ -1,0 +1,7 @@
+paths:
+  train_data_dir: "/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome"
+  develop: "/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome"
+  test: "/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome"
+  model_save_dir: "/gpfs/projects/bsc88/speech/ASR/scripts/miscellaneous/EEND/checkpoints"
+
+language: "spa"
