@@ -17,6 +17,9 @@ from eend.pytorch_backend.diarization_dataset import KaldiDiarizationDataset, my
 from eend.pytorch_backend.loss import batch_pit_loss, report_diarization_error
 
 
+from datasets import load_dataset
+
+
 def train(args):
     """ Training model with pytorch backend.
     This function is called from eend/bin/train.py with
@@ -65,25 +68,23 @@ def train(args):
         n_speakers=args.num_speakers,
         )
     """
-    dataset = KaldiDiarizationDataset(        
-        data_dir=args.train_data_dir,
-        chunk_size=args.num_frames,
-        context_size=args.context_size,
-        input_transform=args.input_transform,
-        frame_size=args.frame_size,
-        frame_shift=args.frame_shift,
-        subsampling=args.subsampling,
-        rate=args.sampling_rate,
-        use_last_samples=True,
-        label_delay=args.label_delay,
-        n_speakers=args.num_speakers,
-        )
+
+    # defining the GPU device here
+    device = torch.device("cuda" if (torch.cuda.is_available() and args.gpu > 0) else "cpu")
+
+    # import the HF dataset
+    # TODO: export the dataset variable.
+    dataset = load_dataset("/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome", "spa") 
     
+    # transform the dataset to Pytorch alike
+    dataset = dataset.with_format("torch")
+
+    # defining the generator to create a random seed.
     generator = torch.Generator()
     generator.manual_seed(27)
     train_set, val_set = random_split(dataset=dataset,
-                                      lengths=[0.8,0.2],
-                                      generator=generator)
+                                    lengths=[0.8,0.2],
+                                    generator=generator)
     
     dataloader =  DataLoader(dataset,
             batch_size=args.batchsize,
@@ -107,7 +108,6 @@ def train(args):
     else:
         raise ValueError('Possible model_type is "Transformer"')
     
-    device = torch.device("cuda" if (torch.cuda.is_available() and args.gpu > 0) else "cpu")
     if device.type == "cuda":
         model = nn.DataParallel(model, list(range(args.gpu)))
     model = model.to(device)
@@ -128,8 +128,8 @@ def train(args):
     # For noam, we use noam scheduler
     if args.optimizer == 'noam':
         scheduler = NoamScheduler(optimizer,
-                                  args.hidden_size,
-                                  warmup_steps=args.noam_warmup_steps)
+                                args.hidden_size,
+                                warmup_steps=args.noam_warmup_steps)
 
     # Init/Resume
     if args.initmodel:
@@ -140,7 +140,7 @@ def train(args):
             train_set,
             batch_size=args.batchsize,
             shuffle=True,
-            num_workers=16,
+            num_workers=16, # TODO: avoid hardcoding
             collate_fn=my_collate
             )
 
@@ -148,7 +148,7 @@ def train(args):
             dev_set,
             batch_size=args.batchsize,
             shuffle=False,
-            num_workers=16,
+            num_workers=16, # TODO: avoid hardcoding
             collate_fn=my_collate
             )
 
