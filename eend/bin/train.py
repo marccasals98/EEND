@@ -3,12 +3,14 @@
 # Copyright 2019 Hitachi, Ltd. (author: Yusuke Fujita)
 # Licensed under the MIT license.
 #
-import yamlargparse
+import argparse
 import os
 
-parser = yamlargparse.ArgumentParser(description='EEND training')
-parser.add_argument('-c', '--config', help='config file path',
-                    action=yamlargparse.ActionConfigFile)
+parser = argparse.ArgumentParser(description="EEND training")
+
+
+
+
 parser.add_argument('train_data_dir',
                     help='kaldi-style data dir used for training.')
 parser.add_argument('valid_data_dir',
@@ -27,7 +29,7 @@ parser.add_argument('--max-epochs', default=20, type=int,
                     help='Max. number of epochs to train')
 parser.add_argument('--input-transform', default='',
                     choices=['', 'log', 'logmel', 'logmel23', 'logmel23_mn',
-                             'logmel23_mvn', 'logmel23_swn'],
+                            'logmel23_mvn', 'logmel23_swn'],
                     help='input transform')
 parser.add_argument('--lr', default=0.001, type=float)
 parser.add_argument('--optimizer', default='adam', type=str)
@@ -40,7 +42,7 @@ parser.add_argument('--batchsize', default=1, type=int,
                     help='number of utterances in one batch')
 parser.add_argument('--label-delay', default=0, type=int,
                     help='number of frames delayed from original labels'
-                         ' for uni-directional rnn to see in the future')
+                        ' for uni-directional rnn to see in the future')
 parser.add_argument('--hidden-size', default=256, type=int,
                     help='number of lstm output nodes')
 parser.add_argument('--context-size', default=0, type=int)
