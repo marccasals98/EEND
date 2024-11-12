@@ -1,5 +1,6 @@
 # Copyright 2019 Hitachi, Ltd. (author: Yusuke Fujita)
 # Modified by: Yexin Yang
+# Modified again by: Marc Casals i Salvador
 # Licensed under the MIT license.
 #
 import os
@@ -42,6 +43,8 @@ def train(args):
     torch.backends.cudnn.benchmark = False
 
     """
+    We are not going to use this for the moment as we are using a HuggingFace dataset
+
     train_set = KaldiDiarizationDataset(
         data_dir=args.train_data_dir,
         chunk_size=args.num_frames,
@@ -74,7 +77,7 @@ def train(args):
     device = torch.device("cuda" if (torch.cuda.is_available() and args.gpu > 0) else "cpu")
 
     # import the HF dataset
-    dataset = load_dataset("/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome", "spa") 
+    dataset = load_dataset(args.train_data_dir, "spa") 
     
     dataset = dataset["data"]
 
