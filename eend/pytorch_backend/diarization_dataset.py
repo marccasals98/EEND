@@ -2,6 +2,7 @@
 
 # Copyright 2019 Hitachi, Ltd. (author: Yusuke Fujita)
 # Modified by: Yexin Yang
+# Modified again by: Marc Casals i Salvador
 # Licensed under the MIT license.
 #
 import torch

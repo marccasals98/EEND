@@ -33,8 +33,8 @@ def train(args):
     fh = logging.FileHandler(args.model_save_dir + "/train.log", mode='w')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
-    # ===================================================================
     logger.info(str(args))
+    # ===================================================================
 
     np.random.seed(args.seed)
     os.environ['PYTORCH_SEED'] = str(args.seed)
@@ -148,7 +148,7 @@ def train(args):
             )
 
     dev_iter = DataLoader(
-            dev_set,
+            val_set,
             batch_size=args.batchsize,
             shuffle=False,
             num_workers=16, # TODO: avoid hardcoding
