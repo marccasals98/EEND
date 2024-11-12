@@ -74,9 +74,10 @@ def train(args):
     device = torch.device("cuda" if (torch.cuda.is_available() and args.gpu > 0) else "cpu")
 
     # import the HF dataset
-    # TODO: export the dataset variable.
     dataset = load_dataset("/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome", "spa") 
     
+    dataset = dataset["data"]
+
     # transform the dataset to Pytorch alike
     dataset = dataset.with_format("torch")
 
@@ -86,7 +87,7 @@ def train(args):
     train_set, val_set = random_split(dataset=dataset,
                                     lengths=[0.8,0.2],
                                     generator=generator)
-    
+
     dataloader =  DataLoader(dataset,
             batch_size=args.batchsize,
             shuffle=True,
@@ -94,12 +95,13 @@ def train(args):
             collate_fn=my_collate)
 
     # Prepare model
-    Y, T = next(iter(train_set))
-    
+    audio = next(iter(train_set))["audio"]["array"]
+    print("the audio shape is: ", audio.shape)
+
     if args.model_type == 'Transformer':
         model = TransformerModel(
                 n_speakers=args.num_speakers,
-                in_size=Y.shape[1],
+                in_size=audio.shape[0],
                 n_units=args.hidden_size,
                 n_heads=args.transformer_encoder_n_heads,
                 n_layers=args.transformer_encoder_n_layers,

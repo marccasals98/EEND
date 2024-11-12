@@ -1,9 +1,17 @@
 # EEND_PyTorch
+
 A PyTorch implementation of [End-to-End Neural Diarization](https://ieeexplore.ieee.org/document/9003959).
 
 This repo is largely based on the original chainer implementation [EEND](https://github.com/hitachi-speech/EEND) by [Hitachi Ltd.](https://github.com/hitachi-speech), who holds the copyright.
 
 This repo only includes the training/inferring part. If you are looking for data preparation, please refer to the [original authors' repo](https://github.com/hitachi-speech/EEND/blob/master/egs/callhome/v1/run_prepare_shared.sh).
+
+## Marc's notes:
+For running the code, run from the repo folder and add the following environmental variable:
+
+```bash
+export PYTHONPATH=`pwd`:$PYTHONPATH
+```
 
 ## Note
 Only Transformer model with PIT loss is implemented here. And I can only assure the main pipeline is correct. Some side stuffs (such as save_attn_weight, BLSTM model, deep clustering loss, etc.) are either not implemented correctly or not implemented.
