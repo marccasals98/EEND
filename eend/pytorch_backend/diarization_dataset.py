@@ -30,8 +30,31 @@ def _gen_frame_indices(
 
 
 def my_collate(batch):
-    data, target = list(zip(*batch))
-    return [data, target]
+    """Generates a batch of data from the list of tuples.
+
+    If, for example, we have an input of the form:
+        [(data1, target1), (data2, target2)]
+
+    The operator `*` is the unpacking operator. 
+        This operator converts any iterable, such as list or dictionary into different objects.
+
+    So we will have (data1, target1), (data2, target2).
+
+    Then, the zip is matching the elements with the same indexes: 
+        data1 with data2 and target1 with target2.
+    
+    So we will pass from [(data1, target1), (data2, target2)] 
+        to [(data1, data2), (target1, target2)]
+
+    Args:
+        batch (_type_): The batch of data of the dataset.
+
+    Returns:
+        _type_: returns the same batch of data but with the elements matched.
+    """
+    
+    audio, timestamps_start, timestamps_end, speakers = list(zip(*batch))
+    return [audio, timestamps_start, timestamps_end, speakers]
 
 
 class KaldiDiarizationDataset(torch.utils.data.Dataset):

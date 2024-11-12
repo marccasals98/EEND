@@ -15,7 +15,7 @@ from torch import nn
 from torch.utils.data import DataLoader, random_split
 
 from eend.pytorch_backend.models import TransformerModel, NoamScheduler
-from eend.pytorch_backend.diarization_dataset import KaldiDiarizationDataset, my_collate
+from eend.pytorch_backend.diarization_dataset import my_collate
 from eend.pytorch_backend.loss import batch_pit_loss, report_diarization_error
 
 
