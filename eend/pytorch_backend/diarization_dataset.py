@@ -130,7 +130,8 @@ class CallHomeDiarizationDataset(torch.utils.data.Dataset):
         Y = feature.get_labeled_STFT(audio,
             sampling_rate,
             timestamps_start, 
-            timestamps_end, 
+            timestamps_end,
+            speakers, 
             self.frame_size, 
             self.frame_shift, 
             self.n_speakers)

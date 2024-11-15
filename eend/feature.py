@@ -10,7 +10,6 @@ from eend import kaldi_data
 import torch
 import torchaudio
 
-
 def get_input_dim(
         frame_size,
         context_size,
@@ -448,20 +447,56 @@ def get_labeledSTFT(
     else:
         return Y, T
 
+def create_label_matrix(
+        starts, ends, speakers, 
+        frame_size, frame_shift, sample_rate, n_frames):
+    """Create a frame-wise label matrix from segment information."""
+    
+    # Get the unique list of speakers
+    unique_speakers = list(set(speakers))
+    n_speakers = len(unique_speakers)
+
+    # Initialize the label matrix with zeros
+    T = torch.zeros((n_frames, n_speakers), dtype=torch.int32)
+    
+    # Map speakers to column indices in the label matrix
+    speaker_to_index = {speaker: idx for idx, speaker in enumerate(unique_speakers)}
+
+    # Convert each segment (start, end) to frame indices
+    for start, end, speaker in zip(starts, ends, speakers):
+        start_frame = int((start * sample_rate / frame_shift).round())
+        end_frame = int((end * sample_rate / frame_shift).round())
+        speaker_index = speaker_to_index[speaker]
+
+        # Mark frames as active for the corresponding speaker
+        T[start_frame:end_frame, speaker_index] = 1
+
+    return T, unique_speakers
 
 def get_labeled_STFT(
         data,
         rate,
         timestamps_start,
         timestamps_end,
+        speakers,
         frame_size,
         frame_shift,
         n_speakers=None):
 
-    print(f"Data shape: {data.shape}")
-    print(f"data in frames: {data.shape[0] / frame_shift}")
-    Y = torch_stft(data, frame_size, frame_shift)
 
-    print("Y shape: ", Y.shape)
+    Y = torch_stft(data, frame_size, frame_shift) 
 
-    return Y
+    torch.tensor(frame_shift, dtype=torch.int8)
+    sample_start = timestamps_start * rate
+    sample_end = timestamps_end * rate
+
+
+    n_frames = _count_frames(sample_end.max(), frame_size, frame_shift)
+
+    T, unique_speakers = create_label_matrix(
+        timestamps_start, timestamps_end, speakers, frame_size, frame_shift, rate, n_frames
+    )
+
+    print(T)
+
+    return Y, T
