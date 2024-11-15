@@ -3,6 +3,7 @@
 # Licensed under the MIT license.
 #
 # This library provides utilities for kaldi-style data directory.
+# Visit the follwoing webpage for more information: https://kaldi-asr.org/doc/data_prep.html
 
 
 from __future__ import print_function
@@ -16,7 +17,13 @@ from functools import lru_cache
 
 
 def load_segments(segments_file):
-    """ load segments file as array """
+    """ load segments file as array 
+
+    Segments file are of this form:
+
+    <utt-id> <rec-id> <start-time> <end-time>
+
+    """
     if not os.path.exists(segments_file):
         return None
     return np.loadtxt(
@@ -51,7 +58,11 @@ def load_segments_rechash(segments_file):
 
 
 def load_wav_scp(wav_scp_file):
-    """ return dictionary { rec: wav_rxfilename } """
+    """ return dictionary { rec: wav_rxfilename }
+    Wav.scp file are of this form:
+    <rec-id> <extended-filename>
+
+    """
     lines = [line.strip().split(None, 1) for line in open(wav_scp_file)]
     return {x[0]: x[1] for x in lines}
 
@@ -84,7 +95,11 @@ def load_wav(wav_rxfilename, start=0, end=None):
 
 
 def load_utt2spk(utt2spk_file):
-    """ returns dictionary { uttid: spkid } """
+    """ returns dictionary { uttid: spkid }
+    
+    utt2spk file are of this form:
+    <utt-id> <spk-id>
+    """
     lines = [line.strip().split(None, 1) for line in open(utt2spk_file)]
     return {x[0]: x[1] for x in lines}
 

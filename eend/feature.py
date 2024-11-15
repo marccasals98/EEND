@@ -6,6 +6,10 @@
 import numpy as np
 import librosa
 import scipy.signal
+from eend import kaldi_data
+import torch
+import torchaudio
+
 
 def get_input_dim(
         frame_size,
@@ -97,6 +101,83 @@ def transform(
         raise ValueError('Unknown transform_type: %s' % transform_type)
     return Y.astype(dtype)
 
+def torch_transform(
+        Y,
+        transform_type=None,
+        dtype=torch.float32,
+        sample_rate=16000,
+        n_mels=40):
+    """ Transform STFT features using torchaudio.
+
+    Args:
+        Y (torch.Tensor): STFT result (n_frames, n_bins) - complex64 tensor
+        transform_type (str): None, "log", "logmel", "logmel23", etc.
+        dtype (torch.dtype): Output data type, torch.float32 is expected
+        sample_rate (int): Sample rate of the audio
+        n_mels (int): Number of mel bands (default is 40)
+    
+    Returns:
+        torch.Tensor: Transformed feature tensor
+    """
+    # Convert complex tensor to magnitude
+    Y = torch.abs(Y)
+    
+    if transform_type is None:
+        pass
+    elif transform_type == 'log':
+        Y = torch.log(torch.clamp(Y, min=1e-10))
+    
+    elif transform_type == 'logmel':
+        n_fft = 2 * (Y.shape[1] - 1)
+        mel_scale = torchaudio.transforms.MelScale(
+            n_mels=n_mels,
+            sample_rate=sample_rate,
+            n_stft=Y.shape[1]
+        )
+        Y = mel_scale(Y ** 2)
+        Y = torch.log10(torch.clamp(Y, min=1e-10))
+
+    elif transform_type == 'logmel23':
+        n_fft = 2 * (Y.shape[1] - 1)
+        mel_scale = torchaudio.transforms.MelScale(
+            n_mels=23,
+            sample_rate=8000,
+            n_stft=Y.shape[1]
+        )
+        Y = mel_scale(Y ** 2)
+        Y = torch.log10(torch.clamp(Y, min=1e-10))
+    
+    elif transform_type == 'logmel23_mn':
+        n_fft = 2 * (Y.shape[1] - 1)
+        mel_scale = torchaudio.transforms.MelScale(
+            n_mels=23,
+            sample_rate=8000,
+            n_stft=Y.shape[1]
+        )
+        Y = mel_scale(Y ** 2)
+        Y = torch.log10(torch.clamp(Y, min=1e-10))
+        mean = torch.mean(Y, axis=0)
+        Y = Y - mean
+
+    elif transform_type == 'logmel23_mvn':
+        n_fft = 2 * (Y.shape[1] - 1)
+        mel_scale = torchaudio.transforms.MelScale(
+            n_mels=23,
+            sample_rate=8000,
+            n_stft=Y.shape[1]
+        )
+        Y = mel_scale(Y ** 2)
+        Y = torch.log10(torch.clamp(Y, min=1e-10))
+        mean = torch.mean(Y, axis=0)
+        Y = Y - mean
+        std = torch.clamp(torch.std(Y, axis=0), min=1e-10)
+        Y = Y / std
+    
+    else:
+        raise ValueError(f"Unknown transform_type: {transform_type}")
+
+    return Y.to(dtype)
+
 
 def subsample(Y, T, subsampling=1):
     """ Frame subsampling
@@ -146,7 +227,11 @@ def stft(
     Returns:
         stft: STFT frames
             (n_frames, n_bins)-shaped np.complex64 array
+            the hape is (n_frames, n_bins) where
+            n_frames is the number of frames (n_samples / frame_shift)
+            n_bins is the number of frequency bins (frame_size / 2 + 1)
     """
+
     # round up to nearest power of 2
     fft_size = 1 << (frame_size-1).bit_length()
     # HACK: The last frame is ommited
@@ -157,6 +242,61 @@ def stft(
     else:
         return librosa.stft(data, n_fft=fft_size, win_length=frame_size,
                             hop_length=frame_shift).T
+
+
+def torch_stft(
+        data,
+        frame_size=1024,
+        frame_shift=256):
+    """ Compute STFT features using torchaudio.
+
+    Args:
+        data: audio signal
+            (n_samples,)-shaped np.float32 array or torch.Tensor
+        frame_size: number of samples in a frame (must be a power of two)
+        frame_shift: number of samples between frames
+
+    Returns:
+        stft: STFT frames
+            (n_frames, n_bins)-shaped torch.complex64 tensor
+            Shape is (n_frames, n_bins) where
+            n_frames is the number of frames (n_samples / frame_shift)
+            n_bins is the number of frequency bins (frame_size / 2 + 1)
+    """
+
+    # Ensure the input is a PyTorch tensor
+    if not isinstance(data, torch.Tensor):
+        data = torch.tensor(data, dtype=torch.float32)
+    
+    # Make sure the data is on the correct device
+    data = data.to('cpu')
+    
+    # Round up to the nearest power of 2 for the FFT size
+    fft_size = 1 << (frame_size - 1).bit_length()
+    
+    # Compute the STFT using torchaudio.transforms.Spectrogram
+    stft_transform = torchaudio.transforms.Spectrogram(
+        n_fft=fft_size,
+        win_length=frame_size,
+        hop_length=frame_shift,
+        power=None,  # Set to None to get complex output
+        normalized=False,
+        center=True,
+        pad_mode='reflect'
+    )
+
+    # Apply the transform
+    stft_result = stft_transform(data)
+    
+    # Transpose the result to match your original shape (n_frames, n_bins)
+    stft_result = stft_result.permute(1, 0)
+
+    # Handle the case of omitting the last frame if needed
+    if len(data) % frame_shift == 0:
+        return stft_result[:-1]
+    else:
+        return stft_result
+
 
 
 def _count_frames(data_len, size, shift):
@@ -182,21 +322,30 @@ def get_frame_labels(
         start (int): start frame index
         end (int): end frame index
             None means the last frame of recording
-        frame_size (int): number of frames in a frame
-        frame_shift (int): number of shift samples
+        frame_size (int): number of samples in a frame
+        frame_shift (int): number of samples the sliding window is moving.
         n_speakers (int): number of speakers
             if None, the value is given from data
     Returns:
         T: label
             (n_frames, n_speakers)-shaped np.int32 array
     """
+    # Segments are the places where the speakers are talking
     filtered_segments = kaldi_obj.segments[kaldi_obj.segments['rec'] == rec]
+    
+    # Find the active speakers of the segments. 
     speakers = np.unique(
             [kaldi_obj.utt2spk[seg['utt']] for seg
                 in filtered_segments]).tolist()
+    
+    # In the EEND approach, the number of maximum speakers is an hyperparemeter. 
+    # If not specified, we take the number of speakers from the data. 
     if n_speakers is None:
         n_speakers = len(speakers)
+
+    # end sample
     es = end * frame_shift if end is not None else None
+    # load the wav file
     data, rate = kaldi_obj.load_wav(
             rec, start * frame_shift, es)
     n_frames = _count_frames(len(data), frame_size, frame_shift)
@@ -248,27 +397,42 @@ def get_labeledSTFT(
     data, rate = kaldi_obj.load_wav(
             rec, start * frame_shift, end * frame_shift)
     Y = stft(data, frame_size, frame_shift)
+
+    # Segments are the places where the speakers are talking
     filtered_segments = kaldi_obj.segments[rec]
     # filtered_segments = kaldi_obj.segments[kaldi_obj.segments['rec'] == rec]
+    
+    # Determine the number of active speakers
     speakers = np.unique(
             [kaldi_obj.utt2spk[seg['utt']] for seg
                 in filtered_segments]).tolist()
+    
+    # In the EEND approach, the number of maximum speakers is an hyperparemeter. 
+    # If not specified, we take the number of speakers from the data.     
     if n_speakers is None:
         n_speakers = len(speakers)
     T = np.zeros((Y.shape[0], n_speakers), dtype=np.int32)
 
+    # For speaker tracking?
     if use_speaker_id:
         all_speakers = sorted(kaldi_obj.spk2utt.keys())
         S = np.zeros((Y.shape[0], len(all_speakers)), dtype=np.int32)
 
     for seg in filtered_segments:
+        # Find the index of the speaker.
         speaker_index = speakers.index(kaldi_obj.utt2spk[seg['utt']])
+        
+        # If we are tracking the speaker id, we need to find the index of the speaker in the list of all speakers.
         if use_speaker_id:
             all_speaker_index = all_speakers.index(kaldi_obj.utt2spk[seg['utt']])
+        
+        # Find the start and end frames of the segment. (May not be 0 bc its a segment of the full audio)
         start_frame = np.rint(
                 seg['st'] * rate / frame_shift).astype(int)
         end_frame = np.rint(
                 seg['et'] * rate / frame_shift).astype(int)
+
+
         rel_start = rel_end = None
         if start <= start_frame and start_frame < end:
             rel_start = start_frame - start
@@ -283,3 +447,21 @@ def get_labeledSTFT(
         return Y, T, S
     else:
         return Y, T
+
+
+def get_labeled_STFT(
+        data,
+        rate,
+        timestamps_start,
+        timestamps_end,
+        frame_size,
+        frame_shift,
+        n_speakers=None):
+
+    print(f"Data shape: {data.shape}")
+    print(f"data in frames: {data.shape[0] / frame_shift}")
+    Y = torch_stft(data, frame_size, frame_shift)
+
+    print("Y shape: ", Y.shape)
+
+    return Y

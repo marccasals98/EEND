@@ -11,6 +11,9 @@ from eend import kaldi_data
 from eend import feature
 
 
+from datasets import load_dataset
+
+
 def _count_frames(data_len, size, step):
     # no padding at edges, last remaining samples are ignored
     return int((data_len - size + step) / step)
@@ -57,7 +60,7 @@ def my_collate(batch):
     return [audio, timestamps_start, timestamps_end, speakers]
 
 
-class KaldiDiarizationDataset(torch.utils.data.Dataset):
+class CallHomeDiarizationDataset(torch.utils.data.Dataset):
     def __init__(
             self,
             data_dir,
@@ -83,35 +86,56 @@ class KaldiDiarizationDataset(torch.utils.data.Dataset):
         self.chunk_indices = []
         self.label_delay = label_delay
 
-        self.data = kaldi_data.KaldiData(self.data_dir)
-
+        # self.data = kaldi_data.KaldiData(self.data_dir)
+        self.data = load_dataset(self.data_dir, "spa")["data"]
+        self.data = self.data.with_format("torch")
+        print(self.data)
+        
         # make chunk indices: filepath, start_frame, end_frame
+        """        
         for rec in self.data.wavs:
-            data_len = int(self.data.reco2dur[rec] * rate / frame_shift)
+            data_len = int(self.data.rformattereco2dur[rec] * rate / frame_shift)
             data_len = int(data_len / self.subsampling)
             for st, ed in _gen_frame_indices(
                     data_len, chunk_size, chunk_size, use_last_samples,
                     label_delay=self.label_delay,
                     subsampling=self.subsampling):
                 self.chunk_indices.append(
-                        (rec, st * self.subsampling, ed * self.subsampling))
+                        (rec, st * self.subsaself.data["timestamps_end"][0]mpling, ed * self.subsampling))
         print(len(self.chunk_indices), " chunks")
-
+        """
     def __len__(self):
-        return len(self.chunk_indices)
+        return len(self.data["audio"])
 
     def __getitem__(self, i):
-        rec, st, ed = self.chunk_indices[i]
+    
+        # rec, st, ed = self.chunk_indices[i]
+        # Given an index, we return the audio file and all the speakers that talk in it.    
+        audio = self.data["audio"][i]["array"]
+        sampling_rate = self.data["audio"][i]["sampling_rate"]
+        timestamps_start = self.data["timestamps_start"][i]
+        timestamps_end = self.data["timestamps_end"][i]
+        speakers = self.data["speakers"][i]
+        
+        """ # TODO: See if this can be removed. 
         Y, T = feature.get_labeledSTFT(
-            self.data,
-            rec,
-            st,
-            ed,
+            audio,
+            sampling_rate,
+            timestamps_start,
+            timestamps_end,
             self.frame_size,
             self.frame_shift,
             self.n_speakers)
+        """
+        Y = feature.get_labeled_STFT(audio,
+            sampling_rate,
+            timestamps_start, 
+            timestamps_end, 
+            self.frame_size, 
+            self.frame_shift, 
+            self.n_speakers)
         # Y: (frame, num_ceps)
-        Y = feature.transform(Y, self.input_transform)
+        Y = feature.torch_transform(Y, self.input_transform)
         # Y_spliced: (frame, num_ceps * (context_size * 2 + 1))
         Y_spliced = feature.splice(Y, self.context_size)
         # Y_ss: (frame / subsampling, num_ceps * (context_size * 2 + 1))
@@ -120,3 +144,10 @@ class KaldiDiarizationDataset(torch.utils.data.Dataset):
         Y_ss = torch.from_numpy(Y_ss).float()
         T_ss = torch.from_numpy(T_ss).float()
         return Y_ss, T_ss
+
+
+train_set = CallHomeDiarizationDataset(
+    data_dir= "/gpfs/projects/bsc88/speech/data/raw_data/CALLHOME_talkbank/callhome"
+    )
+
+print(train_set[0])

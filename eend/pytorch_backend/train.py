@@ -75,10 +75,10 @@ def train(args):
 
     # defining the GPU device here
     device = torch.device("cuda" if (torch.cuda.is_available() and args.gpu > 0) else "cpu")
-
+    logger.info(f"Device: {device}")
     # import the HF dataset
     dataset = load_dataset(args.train_data_dir, "spa") 
-    
+
     dataset = dataset["data"]
 
     # transform the dataset to Pytorch alike
